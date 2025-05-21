@@ -14,6 +14,7 @@ import { warningWebSocketHandler } from './WebSocket/warningSocket.js'
 import { waveHeightWebSocketHandler } from './WebSocket/waveheightSocket.js'
 import { weatherWebSocketHandler } from './WebSocket/weatherSocket.js'
 import { windWebSocketHandler } from './WebSocket/windSocket.js'
+import { messagesWebSocketHandler } from './WebSocket/messagesSocket.js'
 
 dotenv.config()
 const app = express()
@@ -32,56 +33,63 @@ const wssWarning = new WebSocketServer({ noServer: true })
 const wssWaveHeight = new WebSocketServer({ noServer: true })
 const wssWeather = new WebSocketServer({ noServer: true })
 const wssWind = new WebSocketServer({ noServer: true })
+const wssMessages = new WebSocketServer({ noServer: true })
 
 
 server.on('upgrade', (req, socket, head) => {
   const { pathname } = parse(req.url)
 
-  if (pathname === '/ws/humidity') {
-    wssHumidity.handleUpgrade(req, socket, head, (ws) => {
-      wssHumidity.emit('connection', ws, req)
-    })
-  } else if (pathname === '/ws/surfacepressure') {
-    wssSurfacePressure.handleUpgrade(req, socket, head, (ws) => {
-      wssSurfacePressure.emit('connection', ws, req)
-    })
-  } else if (pathname === '/ws/temperature') {
-    wssTemperature.handleUpgrade(req, socket, head, (ws) => {
-      wssTemperature.emit('connection', ws, req)
-    })
-  } else if (pathname === '/ws/tideheight') {
-    wssTideHeight.handleUpgrade(req, socket, head, (ws) => {
-      wssTideHeight.emit('connection', ws, req)
-    })
-  } else if (pathname === '/ws/warning') {
-    wssWarning.handleUpgrade(req, socket, head, (ws) => {
-      wssWarning.emit('connection', ws, req)
-    })
-  } else if (pathname === '/ws/waveheight') {
-    wssWaveHeight.handleUpgrade(req, socket, head, (ws) => {
-      wssWaveHeight.emit('connection', ws, req)
-    })
-  } else if (pathname === '/ws/weather') {
-    wssWeather.handleUpgrade(req, socket, head, (ws) => {
-      wssWeather.emit('connection', ws, req)
-    })
-  } else if (pathname === '/ws/wind') {
-    wssWind.handleUpgrade(req, socket, head, (ws) => {
-      wssWind.emit('connection', ws, req)
-    })
+  if (pathname === '/') {
+  wssMessages.handleUpgrade(req, socket, head, (ws) => {
+    wssMessages.emit('connection', ws, req)
+  })
+  // } else if (pathname === '/ws/humidity') {
+  //   wssHumidity.handleUpgrade(req, socket, head, (ws) => {
+  //     wssHumidity.emit('connection', ws, req)
+  //   })
+  // } else if (pathname === '/ws/surfacepressure') {
+  //   wssSurfacePressure.handleUpgrade(req, socket, head, (ws) => {
+  //     wssSurfacePressure.emit('connection', ws, req)
+  //   })
+  // } else if (pathname === '/ws/temperature') {
+  //   wssTemperature.handleUpgrade(req, socket, head, (ws) => {
+  //     wssTemperature.emit('connection', ws, req)
+  //   })
+  // } else if (pathname === '/ws/tideheight') {
+  //   wssTideHeight.handleUpgrade(req, socket, head, (ws) => {
+  //     wssTideHeight.emit('connection', ws, req)
+  //   })
+  // } else if (pathname === '/ws/warning') {
+  //   wssWarning.handleUpgrade(req, socket, head, (ws) => {
+  //     wssWarning.emit('connection', ws, req)
+  //   })
+  // } else if (pathname === '/ws/waveheight') {
+  //   wssWaveHeight.handleUpgrade(req, socket, head, (ws) => {
+  //     wssWaveHeight.emit('connection', ws, req)
+  //   })
+  // } else if (pathname === '/ws/weather') {
+  //   wssWeather.handleUpgrade(req, socket, head, (ws) => {
+  //     wssWeather.emit('connection', ws, req)
+  //   })
+  // } else if (pathname === '/ws/wind') {
+  //   wssWind.handleUpgrade(req, socket, head, (ws) => {
+  //     wssWind.emit('connection', ws, req)
+  //   })
+  // } 
   } else {
     socket.destroy()
   }
 })
 
-humidityWebSocketHandler(wssHumidity)
-surfacePressureWebSocketHandler(wssSurfacePressure)
-temperatureWebSocketHandler(wssTemperature)
-tideHeightWebSocketHandler(wssTideHeight)
-warningWebSocketHandler(wssWarning)
-waveHeightWebSocketHandler(wssWaveHeight)
-weatherWebSocketHandler(wssWeather)
-windWebSocketHandler(wssWind)
+// humidityWebSocketHandler(wssHumidity)
+// surfacePressureWebSocketHandler(wssSurfacePressure)
+// temperatureWebSocketHandler(wssTemperature)
+// tideHeightWebSocketHandler(wssTideHeight)
+// warningWebSocketHandler(wssWarning)
+// waveHeightWebSocketHandler(wssWaveHeight)
+// weatherWebSocketHandler(wssWeather)
+// windWebSocketHandler(wssWind)
+messagesWebSocketHandler(wssMessages)
 
 const PORT = process.env.PORT || 9100
 server.listen(PORT, () => {

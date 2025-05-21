@@ -7,19 +7,21 @@ import WarningMessages from './components/warningMessages'
 import WaveHeightMessages from './components/waveheightMessages'
 import WeatherMessages from './components/weatherMessages'
 import WindMessages from './components/windMessages'
+import Messages from './components/Messages'
 
 function App() {
   return (
     <div style={{ padding: '2rem', fontFamily: 'Arial' }}>
       <h1>🌤 Streaming Dashboard Via WebSocket</h1>
       {/* <HumidityMessages /> */}
-      <SurfacePressureMessages />
+      {/* <SurfacePressureMessages /> */}
       {/* <TemperatureMessages /> */}
-      <TideHeightMessages />
+      {/* <TideHeightMessages />
       <WarningMessages />
       <WaveHeightMessages />
       <WeatherMessages />
-      <WindMessages />
+      <WindMessages /> */}
+      <Messages />
     </div>
   )
 }
