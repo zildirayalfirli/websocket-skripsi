@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./server
+    container_name: websocket-server
+    restart: 'on-failure'
+    environment:
+      - MONGODB_URI=mongodb+srv://zildirayalfirli:Zildiray123@warningsystem.eextqwr.mongodb.net/?retryWrites=true&w=majority&appName=WarningSystem
+      - PORT=9100
+    ports:
+      - "9100:9100"
+
+  client:
+    build: ./client
+    container_name: websocket-client
+    ports:
+      - "8180:80"
+    depends_on:
+      - server
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: websocket-server-cadvisor
+    restart: always
+    ports:
+      - "8182:8080"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    depends_on:
+      - server
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: websocket-server-prometheus
+    restart: always
+    ports:
+      - "9191:9090"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: websocket-server-grafana
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/data:/var/lib/grafana
+    user: "0"
+    depends_on:
+      - prometheus
+    ports:
+      - "3100:3000"
+
+# volumes:
+#   grafana_data:
