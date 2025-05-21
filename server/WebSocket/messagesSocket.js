@@ -35,6 +35,7 @@ export const messagesWebSocketHandler = (wss) => {
 
       const payload = JSON.stringify({
         type: 'all',
+        sent_at: new Date().toISOString(),
         humidity,
         temperature,
         surfacePressure,

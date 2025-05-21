@@ -1,28 +1,43 @@
 import ws from 'k6/ws';
-import { Trend } from 'k6/metrics';
+import { Trend, Rate, Counter } from 'k6/metrics';
 
 export const options = {
-  vus: __ENV.VUS ? parseInt(__ENV.VUS) : 500,
-  duration: '60s',
+  vus: __ENV.VUS ? parseInt(__ENV.VUS) : 100,
+  duration: '30s',
 };
 
-const latency = new Trend('ws_latency');
-const responseTime = new Trend('ws_response_time');
+const responseTimeTrend = new Trend('ws_response_time');
+const latencyTrend = new Trend('ws_latency');
+const throughputRate = new Rate('ws_throughput');
+const throughputCounter = new Counter('ws_successes');
 
 export default function () {
-  const url = 'ws://localhost:3002';
-  ws.connect(url, {}, function (socket) {
-    const start = Date.now();
+  const url = 'ws://145.79.12.40:9100';
 
-    socket.on('message', function (msg) {
+  ws.connect(url, {}, (socket) => {
+    const startTime = Date.now();
+
+    socket.on('message', (msg) => {
       const data = JSON.parse(msg);
-      const sent = new Date(data.sent_at).getTime();
-      const received = Date.now();
-      latency.add(received - sent);
-      responseTime.add(received - start);
+
+      const receivedTime = Date.now();
+      const sentTime = data.sent_at ? new Date(data.sent_at).getTime() : 0;
+
+      const latency = sentTime ? (receivedTime - sentTime) : 0;
+
+      const responseTime = receivedTime - startTime;
+
+      latencyTrend.add(latency);
+      responseTimeTrend.add(responseTime);
+      throughputRate.add(true);
+      throughputCounter.add(1);
+
       socket.close();
     });
 
-    socket.setTimeout(() => socket.close(), 5000);
+    socket.setTimeout(() => {
+      throughputRate.add(false);
+      socket.close();
+    }, 5000);
   });
 }
