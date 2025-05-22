@@ -93,6 +93,6 @@ messagesWebSocketHandler(wssMessages)
 
 const PORT = process.env.PORT || 9100
 server.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`)
+  console.log(`🚀 Server running at ws://localhost:${PORT}`)
   console.log(`🌐 WebSocket endpoints ready`)
 })
