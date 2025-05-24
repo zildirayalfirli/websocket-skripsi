@@ -13,14 +13,6 @@ function App() {
   return (
     <div style={{ padding: '2rem', fontFamily: 'Arial' }}>
       <h1>🌤 Streaming Dashboard Via WebSocket</h1>
-      {/* <HumidityMessages /> */}
-      {/* <SurfacePressureMessages /> */}
-      {/* <TemperatureMessages /> */}
-      {/* <TideHeightMessages />
-      <WarningMessages />
-      <WaveHeightMessages />
-      <WeatherMessages />
-      <WindMessages /> */}
       <Messages />
     </div>
   )

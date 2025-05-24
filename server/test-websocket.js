@@ -3,73 +3,80 @@ import { check, sleep } from 'k6';
 import { Trend, Rate, Counter } from 'k6/metrics';
 
 export const options = {
-  vus: __ENV.VUS ? parseInt(__ENV.VUS) : 500,
-  duration: '180s',
+  vus: __ENV.VUS ? parseInt(__ENV.VUS) : 5000,
+  duration: __ENV.DURATION ? __ENV.DURATION : '30m',
 };
 
-const responseTimeTrend = new Trend('ws_response_time');
-const latencyTrend = new Trend('ws_latency');
-const throughputRate = new Rate('ws_throughput');
-const throughputCounter = new Counter('ws_successes');
+const VUS_PER_BATCH = 100;
+const BATCH_INTERVAL_MS = 100;
 
-const MAX_RETRIES = 3;
-const TIMEOUT_MS = 15000;
+const wsConnectionDuration = new Trend('ws_connection_duration', true);
+const wsMessageLatency = new Trend('ws_message_latency', true);
+const wsFirstResponseTime = new Trend('ws_first_response_time', true);
+const wsErrorRate = new Rate('ws_error_rate');
+const wsTotalMessages = new Counter('ws_total_messages');
+
+const MAX_CONNECT_RETRIES = 5;
+const CONNECT_TIMEOUT_MS = 10000;
+const INACTIVITY_TIMEOUT_MS = 60000;
 
 export default function () {
-  const url = 'ws://localhost:9100';
+  const batchNumber = Math.floor((__VU - 1) / VUS_PER_BATCH);
+  const delayForThisVU = batchNumber * (BATCH_INTERVAL_MS / 1000);
 
-  let connected = false;
-  let retries = 0;
+  if (delayForThisVU > 0) {
+    sleep(delayForThisVU);
+  }
 
-  while (!connected && retries < MAX_RETRIES) {
-    const res = ws.connect(url, {}, function (socket) {
-      const startTime = Date.now();
+  const url = 'ws://145.79.12.40:9100';
 
+  let connectedSuccessfully = false;
+  let connectRetries = 0;
+  let firstMessageReceived = false;
+  let connectionStartTime = Date.now();
+
+  while (!connectedSuccessfully && connectRetries < MAX_CONNECT_RETRIES) {
+    const res = ws.connect(url, {
+      timeout: CONNECT_TIMEOUT_MS / 1000,
+    }, function (socket) {
       socket.on('open', () => {
-        console.log(`🟢 Connected: VU ${__VU} (retry ${retries})`);
+        connectedSuccessfully = true;
+        wsErrorRate.add(0);
+        connectionStartTime = Date.now();
       });
 
       socket.on('message', (msg) => {
+        wsTotalMessages.add(1);
         try {
           const data = JSON.parse(msg);
           const receivedTime = Date.now();
 
-          const sentTime = data.sent_at
-            ? typeof data.sent_at === 'number'
-              ? data.sent_at
-              : new Date(data.sent_at).getTime()
-            : 0;
+          const sentTime = typeof data.sent_at === 'number' ? data.sent_at : 0;
+          if (sentTime > 0) {
+            wsMessageLatency.add(receivedTime - sentTime);
+          }
 
-          const latency = sentTime && !isNaN(sentTime)
-            ? receivedTime - sentTime
-            : 0;
+          if (!firstMessageReceived) {
+            wsFirstResponseTime.add(receivedTime - connectionStartTime);
+            firstMessageReceived = true;
+          }
 
-          const responseTime = receivedTime - startTime;
+          socket.setTimeout(() => {
+            socket.close();
+          }, INACTIVITY_TIMEOUT_MS);
 
-          latencyTrend.add(latency);
-          responseTimeTrend.add(responseTime);
-          throughputRate.add(true);
-          throughputCounter.add(1);
-
-          connected = true;
-          socket.close();
         } catch (e) {
-          console.error(`❌ JSON parse error (VU ${__VU}): ${e.message}`);
+          console.error(`⚠️ JSON error (VU ${__VU}): ${e.message}`);
+          wsErrorRate.add(1);
         }
       });
 
-      socket.setTimeout(() => {
-        console.warn(`⏳ Timeout: VU ${__VU} no message in ${TIMEOUT_MS / 1000}s`);
-        throughputRate.add(false);
-        socket.close();
-      }, TIMEOUT_MS);
-
       socket.on('close', () => {
-        console.log(`🔴 Disconnected: VU ${__VU}`);
       });
 
       socket.on('error', (e) => {
         console.error(`❌ Socket error (VU ${__VU}): ${e.error()}`);
+        wsErrorRate.add(1);
       });
     });
 
@@ -78,11 +85,16 @@ export default function () {
     });
 
     if (!ok) {
-      console.warn(`🔁 Retry ${retries + 1} for VU ${__VU}`);
-      throughputRate.add(false);
+      wsErrorRate.add(1);
+      console.log(`❌ Connection failed: VU ${__VU} (attempt ${connectRetries + 1}, status: ${res ? res.status : 'N/A'})`);
       sleep(1);
     }
 
-    retries++;
+    connectRetries++;
+  }
+
+  if (!connectedSuccessfully) {
+    console.error(`🔴 Failed to connect after ${MAX_CONNECT_RETRIES} retries: VU ${__VU}`);
+    wsErrorRate.add(1);
   }
 }

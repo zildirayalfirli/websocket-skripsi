@@ -1,51 +1,47 @@
-import Humidity from '../models/humidity.js'
-import Temperature from '../models/temperature.js'
-import SurfacePressure from '../models/surfacePressure.js'
-import TideHeight from '../models/tideHeight.js'
-import Warning from '../models/warning.js'
-import WaveHeight from '../models/waveHeight.js'
-import Weather from '../models/weather.js'
-import Wind from '../models/wind.js'
+import Humidity from '../models/humidity.js';
+import Temperature from '../models/temperature.js';
+import SurfacePressure from '../models/surfacePressure.js';
+import TideHeight from '../models/tideHeight.js';
+import Warning from '../models/warning.js';
+import WaveHeight from '../models/waveHeight.js';
+import Weather from '../models/weather.js';
+import Wind from '../models/wind.js';
 
-const clients = new Map()
-let activeClients = 0
+const clients = new Map();
 
 export const messagesWebSocketHandler = (wss) => {
   wss.on('connection', (ws) => {
-    activeClients++
-    clients.set(ws, null)
-    // console.log(`✅ [PID ${process.pid}] Client connected | Total: ${clients.size}`)
-
-    const timeout = setTimeout(() => {
-      if (ws.readyState === ws.OPEN) {
-        ws.close()
-        // console.log(`⏱️ [PID ${process.pid}] Closed idle client after 15s of no data sent`)
-      }
-    }, 15000)
-    clients.set(ws, timeout)
+    clients.set(ws, true);
 
     ws.on('close', () => {
-      activeClients--
-      clearTimeout(clients.get(ws))
-      clients.delete(ws)
-      console.log(`🔴 [PID ${process.pid}] Client disconnected | Total: ${clients.size}`)
-    })
-  })
+      clients.delete(ws);
+      console.log(`[WebSocket] Client disconnected. Total active clients: ${clients.size}`);
+    });
+
+    ws.on('error', (err) => {
+      clients.delete(ws);
+    });
+  });
 
   setInterval(async () => {
+
+    if (clients.size === 0) {
+      return;
+    }
+
     try {
       const [humidity, temperature, surfacePressure, tideHeight, warning, waveHeight, weather, wind] = await Promise.all([
-        Humidity.find().sort({ Timestamp: -1 }).limit(10),
-        Temperature.find().sort({ Timestamp: -1 }).limit(10),
-        SurfacePressure.find().sort({ Timestamp: -1 }).limit(10),
-        TideHeight.find().sort({ Timestamp: -1 }).limit(10),
-        Warning.find().sort({ Timestamp: -1 }).limit(10),
-        WaveHeight.find().sort({ Timestamp: -1 }).limit(10),
-        Weather.find().sort({ Timestamp: -1 }).limit(10),
-        Wind.find().sort({ Timestamp: -1 }).limit(10)
-      ])
+        Humidity.find().limit(10),
+        Temperature.find().limit(10),
+        SurfacePressure.find.limit(10),
+        TideHeight.find().limit(10),
+        Warning.find().limit(10),
+        WaveHeight.find().limit(10),
+        Weather.find().limit(10),
+        Wind.find().limit(10)
+      ]);
 
-      const sentAt = Date.now()
+      const sentAt = Date.now();
       const payload = JSON.stringify({
         type: 'all',
         sent_at: sentAt,
@@ -57,32 +53,39 @@ export const messagesWebSocketHandler = (wss) => {
         waveHeight,
         weather,
         wind
-      })
+      });
 
-      for (const [client, timeout] of clients.entries()) {
+      let clientsSentTo = 0;
+      for (const [client] of clients.entries()) {
         if (client.readyState === client.OPEN) {
-          client.send(payload)
-
-          clearTimeout(timeout)
-          const newTimeout = setTimeout(() => {
-            if (client.readyState === client.OPEN) {
-              client.close()
-              console.log(`⏱️ [PID ${process.pid}] Closed client after 15s of no data sent`)
-            }
-          }, 15000)
-          clients.set(client, newTimeout)
+          try {
+            client.send(payload);
+            clientsSentTo++;
+          } catch (sendErr) {
+            console.error(`[WebSocket Broadcast] Error sending to client (ID: ${client.id || 'unknown'}): ${sendErr.message}. Client likely disconnected.`);
+            client.close();
+            clients.delete(client);
+          }
+        } else {
+          client.close();
+          clients.delete(client);
         }
       }
 
-      console.log(`📤 [PID ${process.pid}] Broadcasted to ${clients.size} clients at ${new Date(sentAt).toISOString()}`)
+      console.log(`📤 [PID ${process.pid}] Broadcasted to ${clientsSentTo} clients at ${new Date(sentAt).toISOString()}. Remaining active clients: ${clients.size}`);
     } catch (err) {
-      const errorPayload = JSON.stringify({ type: 'error', error: err.message })
+      console.error(`[WebSocket Broadcast] CRITICAL ERROR during broadcast cycle: ${err.message}`, err.stack);
+      const errorPayload = JSON.stringify({ type: 'error', error: err.message });
       for (const [client] of clients.entries()) {
         if (client.readyState === client.OPEN) {
-          client.send(errorPayload)
+          try {
+            client.send(errorPayload);
+          } catch (sendErr) {
+            client.close();
+            clients.delete(client);
+          }
         }
       }
     }
-  }, 5000)
-}
-
+  }, 5000);
+};
