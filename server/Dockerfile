@@ -9,6 +9,6 @@ RUN apt-get update && apt-get install -y lsof --no-install-recommends
 
 COPY . .
 
-EXPOSE 9100
+EXPOSE 9000
 
 CMD ["pm2-runtime", "server.js", "-i", "max"]

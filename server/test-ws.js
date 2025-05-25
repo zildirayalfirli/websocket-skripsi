@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 
 const TOTAL_CLIENTS = 5000;
-const URL = 'ws://147.93.81.243/api/';
+const URL = 'ws://145.79.12.40/api/';
 const RECONNECT_DELAY_MS = 100;
 const INACTIVITY_TIMEOUT_MS = 60000;
 const TEST_DURATION_MS = 1800000;

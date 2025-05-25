@@ -34,7 +34,7 @@ server.on('upgrade', (req, socket, head) => {
 
 messagesWebSocketHandler(wssMessages)
 
-const PORT = process.env.PORT || 9100
+const PORT = process.env.PORT || 9000
 server.listen(PORT, () => {
   console.log(`🚀 Server is running`)
 })
