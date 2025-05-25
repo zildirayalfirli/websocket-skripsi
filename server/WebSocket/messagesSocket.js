@@ -33,7 +33,7 @@ export const messagesWebSocketHandler = (wss) => {
       const [humidity, temperature, surfacePressure, tideHeight, warning, waveHeight, weather, wind] = await Promise.all([
         Humidity.find().limit(10),
         Temperature.find().limit(10),
-        SurfacePressure.find.limit(10),
+        SurfacePressure.find().limit(10),
         TideHeight.find().limit(10),
         Warning.find().limit(10),
         WaveHeight.find().limit(10),
