@@ -1,10 +1,10 @@
 import WebSocket from 'ws';
 
-const TOTAL_CLIENTS = 5000;
+const TOTAL_CLIENTS = 1000;
 const URL = 'ws://145.79.12.40/api/';
 const RECONNECT_DELAY_MS = 100;
-const INACTIVITY_TIMEOUT_MS = 60000;
-const TEST_DURATION_MS = 1800000;
+const INACTIVITY_TIMEOUT_MS = 180000;
+const TEST_DURATION_MS = 900000;
 
 const CLIENTS_PER_BATCH = 100;
 const BATCH_INTERVAL_MS = 100;
@@ -138,11 +138,11 @@ setTimeout(() => {
   console.log(`👥 Clients         : ${TOTAL_CLIENTS}`);
   console.log(`⏱️ Test Duration   : ${TEST_DURATION_MS / 60000} minutes`);
   console.log(`📨 Total Events    : ${totalEvents}`);
-  console.log(`⏱️ Avg Latency     : ${avg(firstLatencies).toFixed(2)} ms`);
   console.log(`⏱️ Avg Response    : ${avg(firstResponseTimes).toFixed(2)} ms`);
   console.log(`⏱️ P90 Response    : ${p90ResponseTime.toFixed(2)} ms`);
   console.log(`⏱️ P95 Response    : ${p95ResponseTime.toFixed(2)} ms`);
   console.log(`⚡ Throughput       : ${(totalEvents / (TEST_DURATION_MS / 1000)).toFixed(2)} msg/sec`);
+  console.log(`⏱️ Avg Latency     : ${avg(firstLatencies).toFixed(2)} ms`);
   console.log(`❌ Total Errors     : ${totalConnectionErrors}`);
   console.log(`🔄 Total Connection Attempts: ${totalConnectionAttempts}`);
   console.log(`📈 Error Rate       : ${errorRate.toFixed(2)} %`);

@@ -1,8 +1,6 @@
 import cluster from 'cluster'
 import os from 'os'
-import dotenv from 'dotenv'
 
-dotenv.config()
 const numCPUs = os.cpus().length
 
 if (cluster.isPrimary) {
@@ -22,4 +20,3 @@ if (cluster.isPrimary) {
 } else {
   import('./index.js')
 }
-
