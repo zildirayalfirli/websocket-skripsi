@@ -13,21 +13,22 @@ export const messagesWebSocketHandler = (wss) => {
   wss.on('connection', (ws) => {
     clients.set(ws, true);
 
+    ws.on('message', (msg) => {
+      ws.send(JSON.stringify({ echo: msg }));
+    });
+
     ws.on('close', () => {
       clients.delete(ws);
       console.log(`[WebSocket] Client disconnected. Total active clients: ${clients.size}`);
     });
 
-    ws.on('error', (err) => {
+    ws.on('error', () => {
       clients.delete(ws);
     });
   });
 
   setInterval(async () => {
-
-    if (clients.size === 0) {
-      return;
-    }
+    if (clients.size === 0) return;
 
     try {
       const [humidity, temperature, surfacePressure, tideHeight, warning, waveHeight, weather, wind] = await Promise.all([
@@ -55,37 +56,44 @@ export const messagesWebSocketHandler = (wss) => {
         wind
       });
 
+      const clientList = [...clients.keys()];
       let clientsSentTo = 0;
-      for (const [client] of clients.entries()) {
-        if (client.readyState === client.OPEN) {
-          try {
-            client.send(payload);
-            clientsSentTo++;
-          } catch (sendErr) {
-            console.error(`[WebSocket Broadcast] Error sending to client (ID: ${client.id || 'unknown'}): ${sendErr.message}. Client likely disconnected.`);
+
+      await Promise.all(
+        clientList.map(async (client) => {
+          if (client.readyState === client.OPEN) {
+            try {
+              await client.send(payload);
+              clientsSentTo++;
+            } catch (err) {
+              console.error(`[WebSocket] Error sending to client: ${err.message}`);
+              client.close();
+              clients.delete(client);
+            }
+          } else {
             client.close();
             clients.delete(client);
           }
-        } else {
-          client.close();
-          clients.delete(client);
-        }
-      }
+        })
+      );
 
       console.log(`📤 [PID ${process.pid}] Broadcasted to ${clientsSentTo} clients at ${new Date(sentAt).toISOString()}. Remaining active clients: ${clients.size}`);
     } catch (err) {
-      console.error(`[WebSocket Broadcast] CRITICAL ERROR during broadcast cycle: ${err.message}`, err.stack);
+      console.error(`[WebSocket Broadcast] CRITICAL ERROR during broadcast: ${err.message}`, err.stack);
       const errorPayload = JSON.stringify({ type: 'error', error: err.message });
-      for (const [client] of clients.entries()) {
-        if (client.readyState === client.OPEN) {
-          try {
-            client.send(errorPayload);
-          } catch (sendErr) {
-            client.close();
-            clients.delete(client);
+
+      await Promise.all(
+        [...clients.keys()].map(async (client) => {
+          if (client.readyState === client.OPEN) {
+            try {
+              await client.send(errorPayload);
+            } catch {
+              client.close();
+              clients.delete(client);
+            }
           }
-        }
-      }
+        })
+      );
     }
   }, 5000);
 };

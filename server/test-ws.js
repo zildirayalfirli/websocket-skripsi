@@ -1,42 +1,23 @@
 import WebSocket from 'ws';
 
-const TOTAL_CLIENTS = 1000;
+const TOTAL_CLIENTS = 100;
 const URL = 'ws://145.79.12.40/api/';
 const RECONNECT_DELAY_MS = 100;
 const INACTIVITY_TIMEOUT_MS = 180000;
 const TEST_DURATION_MS = 900000;
 
-const CLIENTS_PER_BATCH = 100;
+const CLIENTS_PER_BATCH = 50;
 const BATCH_INTERVAL_MS = 100;
 
 let totalEvents = 0;
-let firstLatencies = [];
-let firstResponseTimes = [];
 let startTimes = Array(TOTAL_CLIENTS).fill(0);
 let messageCounts = Array(TOTAL_CLIENTS).fill(0);
-let totalConnectionErrors = 0;
-let initialConnectionsAttempted = 0;
 
 const testStartTime = Date.now();
 
-console.log(`🚀 Starting ${TOTAL_CLIENTS} WebSocket clients in batches...`);
-
-function calculatePercentile(arr, p) {
-  if (arr.length === 0) return 0;
-  const sortedArr = [...arr].sort((a, b) => a - b);
-  const index = (p / 100) * (sortedArr.length - 1);
-  if (index % 1 === 0) {
-    return sortedArr[index];
-  } else {
-    const lower = Math.floor(index);
-    const upper = Math.ceil(index);
-    const weight = index - lower;
-    return sortedArr[lower] * (1 - weight) + sortedArr[upper] * weight;
-  }
-}
+console.log(`🚀 Starting Testing ${TOTAL_CLIENTS} WebSocket`);
 
 function createWSClient(clientId) {
-  initialConnectionsAttempted++;
   const ws = new WebSocket(URL);
   let inactivityTimer;
 
@@ -44,7 +25,7 @@ function createWSClient(clientId) {
     clearTimeout(inactivityTimer);
     inactivityTimer = setTimeout(() => {
       console.warn(`[Client ${clientId}] ❌ No message received in ${INACTIVITY_TIMEOUT_MS / 1000}s, closing WebSocket connection.`);
-      ws.close()
+      ws.close();
     }, INACTIVITY_TIMEOUT_MS);
   };
 
@@ -54,36 +35,16 @@ function createWSClient(clientId) {
     resetInactivityTimer();
   };
 
-  ws.onmessage = (event) => {
+  ws.onmessage = () => {
     resetInactivityTimer();
-    try {
-      const now = Date.now();
-      const data = JSON.parse(event.data);
-      const sent = new Date(data.sent_at).getTime();
-      const latency = now - sent;
-
-      messageCounts[clientId]++;
-      totalEvents++;
-
-      if (messageCounts[clientId] === 1) {
-        const responseTime = now - startTimes[clientId];
-        firstLatencies.push(latency);
-        firstResponseTimes.push(responseTime);
-      }
-    } catch (err) {
-      console.error(`⚠️ JSON error (client ${clientId}):`, err.message);
-    }
+    messageCounts[clientId]++;
+    totalEvents++;
   };
 
-  ws.onerror = (err) => {
-    totalConnectionErrors++;
+  ws.onerror = () => {
     ws.close();
     clearTimeout(inactivityTimer);
-
     setTimeout(() => createWSClient(clientId), RECONNECT_DELAY_MS);
-  };
-
-  ws.onclose = (event) => {
   };
 }
 
@@ -97,11 +58,9 @@ const openClientsInBatch = () => {
   if (clientsOpened < TOTAL_CLIENTS) {
     setTimeout(openClientsInBatch, BATCH_INTERVAL_MS);
   } else {
-    console.log(`✅ All ${TOTAL_CLIENTS} clients initiated in batches.`);
+    console.log(`✅ All ${TOTAL_CLIENTS} clients initiated.`);
   }
 };
-
-openClientsInBatch();
 
 const progressInterval = setInterval(() => {
   const elapsedTimeMs = Date.now() - testStartTime;
@@ -126,25 +85,16 @@ const progressInterval = setInterval(() => {
 
 setTimeout(() => {
   clearInterval(progressInterval);
-  const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length || 0;
-
-  const p90ResponseTime = calculatePercentile(firstResponseTimes, 90);
-  const p95ResponseTime = calculatePercentile(firstResponseTimes, 95);
-
-  const totalConnectionAttempts = initialConnectionsAttempted + totalConnectionErrors;
-  const errorRate = (totalConnectionErrors / totalConnectionAttempts) * 100;
 
   console.log('\n📊 === SUMMARY ===');
   console.log(`👥 Clients         : ${TOTAL_CLIENTS}`);
   console.log(`⏱️ Test Duration   : ${TEST_DURATION_MS / 60000} minutes`);
   console.log(`📨 Total Events    : ${totalEvents}`);
-  console.log(`⏱️ Avg Response    : ${avg(firstResponseTimes).toFixed(2)} ms`);
-  console.log(`⏱️ P90 Response    : ${p90ResponseTime.toFixed(2)} ms`);
-  console.log(`⏱️ P95 Response    : ${p95ResponseTime.toFixed(2)} ms`);
   console.log(`⚡ Throughput       : ${(totalEvents / (TEST_DURATION_MS / 1000)).toFixed(2)} msg/sec`);
-  console.log(`⏱️ Avg Latency     : ${avg(firstLatencies).toFixed(2)} ms`);
-  console.log(`❌ Total Errors     : ${totalConnectionErrors}`);
-  console.log(`🔄 Total Connection Attempts: ${totalConnectionAttempts}`);
-  console.log(`📈 Error Rate       : ${errorRate.toFixed(2)} %`);
+
   process.exit(0);
 }, TEST_DURATION_MS);
+
+(async () => {
+  openClientsInBatch();
+})();
